@@ -1,0 +1,99 @@
+--- CMakeLists.txt	Mon Jan 19 05:14:16 1970
++++ CMakeLists.txt	Mon Jan 19 05:14:16 1970
+@@ -5,9 +5,15 @@
+ project (CMINPACK)
+ string(TOLOWER ${PROJECT_NAME} PROJECT_NAME_LOWER)
+ 
++if(NOT MSVC)
++  set(CMAKE_INSTALL_PREFIX /usr)
++endif(NOT MSVC)
++if(WIN32)
++  set(CMAKE_DEBUG_POSTFIX "-gd")
++endif()
+ include(${PROJECT_SOURCE_DIR}/cmake/cminpack_utils.cmake)
+ # Set version and OS-specific settings
+-set(CMINPACK_VERSION 1.0.90 CACHE STRING "CMinpack version")
++set(CMINPACK_VERSION 1.1.3 CACHE STRING "CMinpack version")
+ DISSECT_VERSION()
+ GET_OS_INFO()
+ 
+@@ -32,6 +38,9 @@
+ else (SHARED_LIBS)
+   message (STATUS "Building static libraries.")
+   set (LIB_TYPE STATIC)
++	if(WIN32)
++		#add_definitions(-DCMINPACK_NO_DLL)
++	endif(WIN32)
+ endif (SHARED_LIBS)
+ 
+ #set(CMAKE_INSTALL_PREFIX ${PROJECT_SOURCE_DIR}/../build)
+@@ -52,18 +61,64 @@
+ set (cminpack_hdrs
+     cminpack.h minpack.h)
+ 
+-add_library (cminpack ${LIB_TYPE} ${cminpack_srcs})
++add_library (cminpack SHARED ${cminpack_srcs})
++add_library (cminpack_s STATIC ${cminpack_srcs})
++set_target_properties(cminpack_s PROPERTIES COMPILE_DEFINITIONS CMINPACK_NO_DLL)
+ 
+-install (TARGETS cminpack 
++install (TARGETS cminpack cminpack_s
+    LIBRARY DESTINATION ${CMINPACK_LIB_INSTALL_DIR} COMPONENT library
+    ARCHIVE DESTINATION ${CMINPACK_LIB_INSTALL_DIR} COMPONENT library
+    RUNTIME DESTINATION ${CMINPACK_LIB_INSTALL_DIR} COMPONENT library)
+ install (FILES ${cminpack_hdrs} DESTINATION ${CMINPACK_INCLUDE_INSTALL_DIR}
+     COMPONENT cminpack_hdrs)
+ 
+-if (USE_FPIC AND NOT SHARED_LIBS)
+-  set_target_properties (cminpack PROPERTIES COMPILE_FLAGS -fPIC)
+-endif (USE_FPIC AND NOT SHARED_LIBS)
++if (USE_FPIC)
++  set_target_properties (cminpack_s PROPERTIES COMPILE_FLAGS -fPIC)
++endif (USE_FPIC)
+ 
+ set_target_properties(cminpack PROPERTIES VERSION ${CMINPACK_VERSION})
++set_target_properties(cminpack_s PROPERTIES VERSION ${CMINPACK_VERSION})
++# RPM
++find_program(RPM_PROGRAM rpm)
++if(EXISTS ${RPM_PROGRAM})
++  list(APPEND CPACK_GENERATOR "RPM")
++endif(EXISTS ${RPM_PROGRAM})
++# DEB
++find_program(DPKG_PROGRAM dpkg)
++if(EXISTS ${DPKG_PROGRAM})
++  list(APPEND CPACK_GENERATOR "DEB")
++endif(EXISTS ${DPKG_PROGRAM})
++# NSIS
++find_program(NSIS_PROGRAM makensis MakeNSIS)
++if(EXISTS ${NSIS_PROGRAM})
++  list(APPEND CPACK_GENERATOR "NSIS")
++endif(EXISTS ${NSIS_PROGRAM})
++# dpkg
++find_program(PACKAGE_MAKER_PROGRAM PackageMaker
++	    HINTS /Developer/Applications/Utilities)
++if(EXISTS ${PACKAGE_MAKER_PROGRAM})
++  list(APPEND CPACK_GENERATOR "PackageMaker")
++endif(EXISTS ${PACKAGE_MAKER_PROGRAM})
++
++if(CMAKE_SIZEOF_VOID_P EQUAL 8)
++  set(CPACK_NSIS_INSTALL_ROOT "$PROGRAMFILES64")
++  set(BUILD_ARCH_ 64)
++else()
++  set(CPACK_NSIS_INSTALL_ROOT "$PROGRAMFILES32")
++  set(BUILD_ARCH_ 86)
++endif()
++if (MSVC90)
++  set(CPACK_PACKAGE_FILE_NAME "${PROJECT_NAME}-${CMINPACK_VERSION}-vs2008-x${BUILD_ARCH_}")
++elseif (MSVC10)
++  set(CPACK_PACKAGE_FILE_NAME "${PROJECT_NAME}-${CMINPACK_VERSION}-vs2010-x${BUILD_ARCH_}")
++endif (MSVC90)
++set(CPACK_GENERATOR "${CPACK_GENERATOR}")
++set(CPACK_MONOLITHIC_INSTALL 1)
++set(CPACK_PACKAGE_INSTALL_DIRECTORY "${PROJECT_NAME}")
++set(CPACK_PACKAGE_VERSION_MAJOR "@CMINPACK_MAJOR_VERSION@")
++set(CPACK_PACKAGE_VERSION_MINOR "@CMINPACK_MINOR_VERSION@")
++set(CPACK_PACKAGE_VERSION_PATCH "@CMINPACK_REVISION_VERSION@")
++include(InstallRequiredSystemLibraries)
++set(CPACK_PACKAGE_CONTACT "Frederic Devernay")
++include(CPack)
+ 

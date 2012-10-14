@@ -1,0 +1,38 @@
+set(PROJECT_NAME VTK)
+set(VERSION_MAJOR 5)
+set(VERSION_MINOR 8)
+set(VERSION_PATCH 0)
+set(VERSION "${VERSION_MAJOR}.${VERSION_MINOR}.${VERSION_PATCH}")
+set(BUILD_CONFIG "debug release")
+
+if(BUILD_INSTALLERS)
+    # if we're building installers, disable DirectX
+	set(CMAKE_ARGS -DDirectX_INCLUDE_DIR= -DDirectX_LIBRARY= -DCMAKE_INSTALL_PREFIX=${ep_base}/Install/${PROJECT_NAME})
+	set(${PROJECT_NAME}_root_cmake -DVTK_DIR=${ep_base}/Install/${PROJECT_NAME}/lib/vtk-${VERSION_MAJOR}.${VERSION_MINOR} CACHE STRING "${PROJECT_NAME} root" FORCE)
+else()
+	set(CMAKE_ARGS)
+	# this applies only for Windows
+	set(${PROJECT_NAME}_root_cmake -DVTK_DIR=${INSTALL_PREFIX}/${PROJECT_NAME}/lib/vtk-${VERSION_MAJOR}.${VERSION_MINOR} CACHE STRING "${PROJECT_NAME} root" FORCE)
+endif()
+
+# do we build QVTK ?
+find_package(Qt4 QUIET)
+option(VTK_WITH_QT "Build VTK with Qt support" OFF)
+if(QT4_FOUND AND VTK_WITH_QT)
+  set(CMAKE_QT_ARGS -DVTK_USE_QT:BOOL=ON -DVTK_USE_QVTK_QTOPENGL:BOOL=ON)
+else(QT4_FOUND AND VTK_WITH_QT)
+  set(CMAKE_QT_ARGS -DVTK_USE_QT:BOOL=OFF -DVTK_USE_QVTK_QTOPENGL:BOOL=OFF)
+endif(QT4_FOUND AND VTK_WITH_QT)
+
+pcl_ExternalProject_Add(
+   ${PROJECT_NAME}
+   URL http://www.vtk.org/files/release/${VERSION_MAJOR}.${VERSION_MINOR}/vtk-${VERSION}.tar.gz
+   PATCH_FILE "${CMAKE_CURRENT_SOURCE_DIR}/cpack-${VERSION}.patch"
+   CMAKE_ARGS  -DBUILD_SHARED_LIBS:BOOL=OFF -DBUILD_TESTING:BOOL=OFF ${CMAKE_QT_ARGS} ${CMAKE_ARGS}
+   BUILD_COMMAND ${CMAKE_COMMAND} 
+                 -DBUILD_PROJECT=${PROJECT_NAME} 
+				 -DBUILD_CONFIG=${BUILD_CONFIG}
+				 -DBUILD_TARGET=${TARGET_PROJECT}
+				 -P "${PROJECT_SOURCE_DIR}/pcl_build_external_project.cmake"
+   INSTALL_COMMAND ""
+)
